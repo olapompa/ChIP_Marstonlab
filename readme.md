@@ -28,7 +28,7 @@ In Excel:
 * **Type** IN or ChIP 
 
 Example of correctly formatted input file
-![picture of an excel table with correct column names and data](example_input.png)
+![picture of an excel table with correct column names and data](example_input.PNG)
 
 
 For running the script, you will also need a file with primers efficiency, which is also attached in git. Put this file in the directory where you execute the code. Don't change the name, or names of columns. **DO** change the site name and add your primers if they are not in the list.
