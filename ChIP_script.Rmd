@@ -1,0 +1,181 @@
+---
+title: "Part1_Cleaning the data and calculating enrichments"
+output: html_notebook
+---
+
+This is where you define the directory where all of your new files will be. Click the green arrow in the upper right corner to run the chunk. The separate chunks can also be run by clicking within the chunk and pressing ctrl + shift + enter. You can run entire script by pressing "run" at the top of the page. 
+
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "C:/Users/your/path")
+```
+
+We are using a few packages to make our life easier. It installs the package if needed and then loads it.
+```{r}
+if(!require(ggplot2)){
+    install.packages("ggplot2")
+    library(ggplot2)
+}
+
+if(!require(tidyverse)){
+    install.packages("tidyverse")
+    library(tidyverse)
+}
+
+if(!require(ggpubr)){
+    install.packages("ggpubr")
+    library(ggpubr)
+}
+
+```
+
+Please review the primers before beginning. You should download the "primers_efficiency_luna.csv" from git and put it in the folder mentioned in the chunk above. Make sure "Site" in the table here matches your input file and that the primer you use is on the list (if not, add it). You don't need to delete primers you don't use. Also you need to know your dilution.
+```{r}
+primers <- read.csv("primers_efficiency_luna.csv") %>% 
+  select(Site, primer.pair, efficiency.SK1) %>%  #available: efficiency.SK1, efficiency.W303, efficiency.pombe
+  rename(efficiency= 3) %>% 
+  filter(!is.na(efficiency))
+
+primers
+
+dilution <- 5000 #I use this in budding yeast meiosis sample, yours may be different
+```
+
+In the new R, setwd() works only if you run the entire chunk and reverses afterwards. If you use an old version of R, you may have to run setwd() again to get back to the directory you want to use.  
+```{r}
+setwd("C:/Users/your/path/rawdata")
+
+tbl <-
+    list.files(pattern = "*.csv") %>% 
+    map_df(~read.csv(., skip=1))
+
+head(tbl)
+```
+Making the table easier to read and setting proper data tyoe in columns for calculation later
+```{r}
+tbl.clean <- tbl %>%
+      select(Cp, Sample, Type, Site, Replicate, Strain) %>% 
+      mutate(row=row_number()) %>% 
+      mutate(across(c(Sample, Type, Site, Replicate, Strain), as.factor)) %>% 
+      filter(across(c(Sample, Type, Site, Replicate, Strain), ~!is.na(.))) %>% 
+      select(row, Strain, Sample, Replicate, Site, Type, Cp)
+
+head(tbl.clean)
+write.csv(tbl.clean, "expn_ChIPdata_cleaned.csv")
+```
+
+Check if pipetting is good and calculate geometric mean of Cp. As the outcome of this chunk, you will get a table with conditions where the pipetting was off and the difference between the maximal and minimal Cp value are bigger than 1.If your pipetting is excellent, you will get an empty table.  
+```{r}
+#R doesn't have a built-in function for calculating geometric mean, I found it in stack overflow
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+
+Cp.tbl <- tbl.clean %>% 
+      group_by(Strain, Sample, Replicate, Site, Type) %>% 
+  summarise(
+      PCRs.per.sample =n(),
+      difference = max(Cp)-min(Cp),
+      Cp.geomean = gm_mean(Cp),
+      quality = if_else(difference <= 1, "good", "bad"),
+      .groups = "keep")
+
+Cp.tbl %>% 
+  filter(quality == "bad")
+
+write.csv(Cp.tbl, "expn_ChIPdata_Cp_used.csv")
+```
+If you need to remove a Cp value from further calculations you can do this here. The chunk is inactive if you make run all chunks but it still can be executed manually. After removing all inappropriate data, run again the chunk directly above once again.
+```{r eval = FALSE, echo = FALSE} 
+
+#we will execute it bit by bit. First, 
+tbl.clean %>%  
+  filter(Sample=="b_notag2", Replicate=="B", Site=="ARM4_SK1", Type=="IN") #%>% 
+#of course this is example and you need to change the parameters
+#if you need to filter more than one condition, remove the # before %>% and add more lines, as required
+
+#now, look at the raw Cp numbers and see where are the offending values. To remove them, we will use row number, which should be the left most column
+
+tbl.clean <-  tbl.clean %>% 
+  filter(!row == 1)
+  #this removes row 1. Change for your least favourite one
+  #filter(!row == c(1,2)) if you need to filter more than oe value, use this syntax instead
+
+#the data is overwritten. You can check it by running the first part of the chunk
+
+tbl.clean %>%  
+  filter(Sample=="b_notag2", Replicate=="B", Site=="ARM4_SK1", Type=="IN")
+```
+Now, finally calculating the enrichment in every sample.
+```{r}
+Cp.overview <- Cp.tbl %>% 
+    ungroup() %>% 
+    left_join(., primers) %>%
+    select(-difference, -PCRs.per.sample, -quality) %>% 
+    spread(Type, Cp.geomean) %>% 
+    mutate(deltaCp = ChIP-(IN-log(dilution, base=efficiency))) %>% 
+    mutate(enrichment.over.IN = efficiency^(-deltaCp))
+
+Cp.overview
+write.csv(Cp.overview, "expn_ChIPdata_enrichments.csv")
+```
+Now, averages, errors and p.values. 
+```{r}
+
+df.summary <- Cp.overview %>% 
+  group_by(Site, Sample)   %>%
+  summarise(
+    replicates = n(),
+    sd = sd(enrichment.over.IN, na.rm = TRUE),
+    se = stats::sd(enrichment.over.IN, na.rm = TRUE)/sqrt(replicates),
+    enrichment = mean(enrichment.over.IN),
+     .groups = "keep") 
+  
+  df.summary
+  write.csv(df.summary, "expn_ChIPdata_enrichment_averages_errors.csv")
+
+  
+#DO NOT CHANGE ANYTHING HERE! THIS IS VERY IMPORTANT! JUST RUN IT AND DON'T WORRY  
+site.p.val <- function(data=Cp.overview, reference.group){  
+  p.val <- data.frame()
+  for (i in levels(as.factor(data$Site))){
+  new.rows <- data %>% 
+  filter(Site==i) %>% 
+  compare_means(enrichment.over.IN ~ Sample,  data = ., ref.group = reference.group,
+              method = "t.test") %>% 
+  mutate(Site = i) %>% 
+  select(-1)
+  p.val <- rbind(p.val, new.rows)
+  }
+  return(p.val)
+}
+
+#in reference.group put the name of your wt
+ChIP.stat <- site.p.val(reference.group = "c_wt")
+ChIP.stat
+write.csv(ChIP.stat, "expn_ChIPdata_statistics.csv")
+```
+
+And now the interesting bit, that is plotting
+```{r}
+#use ?ggpar for parameters description
+#I don't know how to make the bars filled with color and how to put p.value on the graph. If someone figures it out, please let me know
+
+my.plot <- ggbarplot(Cp.overview, x = "Site", y = "enrichment.over.IN", 
+          add = c("mean_se", "jitter"),
+          color = "Sample", palette = "jco",
+          position = position_dodge(0.8)) #+
+    stat_compare_means(aes(group = Site),label = "p.signif", method = "t.test",
+                     ref.group = "c_wt", hide.ns = FALSE) 
+
+my.plot
+
+png("expn_ChIPplot.png")
+my.plot
+dev.off()
+
+#if dev.off gives error, execute
+#while (!is.null(dev.list()))  dev.off()
+#and then try again
+```
+
