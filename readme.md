@@ -1,9 +1,9 @@
 ---
-title: "Hello all lab R people"
+title: "readme"
 output: html_document
 ---
 
-Hello all lab R people
+## Hello all lab R people,
 
 I am making an R script to streamline our ChIP analysis. The excel file is so 2000s and it is very easy to make mistakes there while copying and I don't want to deal with its issues anymore. I hope to make everything as automated as possible and if I am very nice (or bored) I will try to make shiny app to make the analysis do itself. But we will see. So far it is written in a lovely R markdown so you will be able to make a nice html or pdf file to add straight to your benchling.It will also write tables with the calculations as external files so all of them will be preserved and everything will be much easier to read than it is now.
 
@@ -23,9 +23,15 @@ In Excel:
 
 * **Replicate** For simplicity, the script recognizes letters (case shouldn't matter but use it consistently).
 * **Strain** Just strain numbers so the sample can be identified unambiguously
-* **Sample** Use a_no_tag, b_wt, c_spo13d etc. It should begin with a letter so it can arrange your samples in order you want. Use only alphanumeric and underscores, don't use any special characters (such as \Delta$, just use del or d).
-* **Site** This is what primers you use. I wrote it so it can be modified easily so use what you like only keep it consistent
+* **Sample** Use a_no_tag, b_wt, c_spo13d etc. It should begin with a letter so it can arrange your samples in order you want. Use only alphanumeric and underscores, don't use any special characters (such as $\Delta$, just use del or d).
+* **Site** This is what primers you use. For best results use labels from primers file (see below). You can also choose what you want and change the name in the primers file. Just be reasonable.
 * **Type** IN or ChIP 
 
-Let your error barrs be small and the replicates few,
+Example of correctly formatted input file
+![picture of an excel table with correct column names and data](example_input.png)
+
+
+For running the script, you will also need a file with primers efficiency, which is also attached in git. Put this file in the directory where you execute the code. Don't change the name, or names of columns. **DO** change the site name and add your primers if they are not in the list.
+
+Let your error barrs be small and the replicates few,  
 Ola
