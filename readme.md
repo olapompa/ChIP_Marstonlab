@@ -21,7 +21,8 @@ In Excel:
 --leave the initial lines as they are (or replace it with your comment. R doesn't care as long it finds headers on line 2)  
 --Please add following columns: Replicate, Strain, Sample, Site, Type. The order doesn't matter  
 
-* **Replicate** For simplicity, the script recognizes letters (case shouldn't matter but use it consistently).
+* **Replicate** For simplicity, the script recognizes letters (case shouldn't matter but use it consistently) and should recognise numbers as well but I DID NOT TEST that.  
+IMPORTANT! The script recognises replicates F or T as logical value and gives out error. To go around the bug, name those two  F_ or T_ (with an underscore)
 * **Strain** Just strain numbers so the sample can be identified unambiguously
 * **Sample** Use a_no_tag, b_wt, c_spo13d etc. It should begin with a letter so it can arrange your samples in order you want. Use only alphanumeric and underscores, don't use any special characters (such as $\Delta$, just use del or d).
 * **Site** This is what primers you use. For best results use labels from primers file (see below). You can also choose what you want and change the name in the primers file. Just be reasonable.
