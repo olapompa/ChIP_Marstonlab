@@ -1,5 +1,5 @@
 ---
-title: "Part1_Cleaning the data and calculating enrichments"
+title: "Script for ChIP analysis"
 output: html_notebook
 ---
 
@@ -45,16 +45,19 @@ In the new R, setwd() works only if you run the entire chunk and reverses afterw
 ```{r}
 setwd("C:/Users/your/path/rawdata")
 
+#minor bug here: if you have replicate F or T, there will be an error because R thinks this is "TRUE" or "FALSE". We will go around it and put an underscore after the letter. We will remove the underscore a bit later
 tbl <-
     list.files(pattern = "*.csv") %>% 
     map_df(~read.csv(., skip=1))
 
 head(tbl)
 ```
+
 Making the table easier to read and setting proper data tyoe in columns for calculation later
 ```{r}
 tbl.clean <- tbl %>%
       select(Cp, Sample, Type, Site, Replicate, Strain) %>% 
+      mutate(across("Replicate", str_replace, "_", "")) %>% 
       mutate(row=row_number()) %>% 
       mutate(across(c(Sample, Type, Site, Replicate, Strain), as.factor)) %>% 
       filter(across(c(Sample, Type, Site, Replicate, Strain), ~!is.na(.))) %>% 
@@ -62,6 +65,18 @@ tbl.clean <- tbl %>%
 
 head(tbl.clean)
 write.csv(tbl.clean, "expn_ChIPdata_cleaned.csv")
+```
+
+Here, we will exclude bad replicates and samples we are no longer interested in (can remove other things as well, please help yourself based on the syntax). Please write why you reject the replicate, etc:
+
+
+```{r}
+#examples
+tbl.clean <-  tbl.clean %>% 
+  filter(!Strain %in% c("8067")) %>% 
+  filter(!Replicate %in% c("B", "D"))
+
+tbl.clean
 ```
 
 Check if pipetting is good and calculate geometric mean of Cp. As the outcome of this chunk, you will get a table with conditions where the pipetting was off and the difference between the maximal and minimal Cp value are bigger than 1.If your pipetting is excellent, you will get an empty table.  
@@ -85,27 +100,29 @@ Cp.tbl %>%
 
 write.csv(Cp.tbl, "expn_ChIPdata_Cp_used.csv")
 ```
+
 If you need to remove a Cp value from further calculations you can do this here. The chunk is inactive if you make run all chunks but it still can be executed manually. After removing all inappropriate data, run again the chunk directly above once again.
 ```{r eval = FALSE, echo = FALSE} 
 
 #we will execute it bit by bit. First, 
 tbl.clean %>%  
-  filter(Sample=="b_notag2", Replicate=="B", Site=="ARM4_SK1", Type=="IN") #%>% 
+  filter(Sample=="f_CDC5kt", Replicate=="F", Site=="ARM4_SK1", Type=="ChIP")
 #of course this is example and you need to change the parameters
-#if you need to filter more than one condition, remove the # before %>% and add more lines, as required
+#if you need to filter more than one condition, do it one by one
 
 #now, look at the raw Cp numbers and see where are the offending values. To remove them, we will use row number, which should be the left most column
 
 tbl.clean <-  tbl.clean %>% 
-  filter(!row == 1)
-  #this removes row 1. Change for your least favourite one
-  #filter(!row == c(1,2)) if you need to filter more than oe value, use this syntax instead
+  filter(!row %in% c(1,2))
+  #this removes row 1 and 2. Change for your least favourite ones
+
 
 #the data is overwritten. You can check it by running the first part of the chunk
 
 tbl.clean %>%  
-  filter(Sample=="b_notag2", Replicate=="B", Site=="ARM4_SK1", Type=="IN")
+  filter(Sample=="f_CDC5kt", Replicate=="F", Site=="ARM4_SK1", Type=="ChIP")
 ```
+
 Now, finally calculating the enrichment in every sample.
 ```{r}
 Cp.overview <- Cp.tbl %>% 
@@ -119,6 +136,7 @@ Cp.overview <- Cp.tbl %>%
 Cp.overview
 write.csv(Cp.overview, "expn_ChIPdata_enrichments.csv")
 ```
+
 Now, averages, errors and p.values. 
 ```{r}
 
