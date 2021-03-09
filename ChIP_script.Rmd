@@ -192,6 +192,11 @@ png("expn_ChIPplot.png")
 my.plot
 dev.off()
 
+#should be openable in illustrator
+svg("expn_ChIPplot.svg")
+my.plot
+dev.off()
+
 #if dev.off gives error, execute
 #while (!is.null(dev.list()))  dev.off()
 #and then try again
