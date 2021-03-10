@@ -174,14 +174,17 @@ ChIP.stat
 write.csv(ChIP.stat, "expn_ChIPdata_statistics.csv")
 ```
 
-And now the interesting bit, that is plotting
+And now the interesting bit, that is plotting. See [sthda](http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/) for package usage description. There are things that can be adjusted in R, like colors, title, axes etc. 
 ```{r}
 #use ?ggpar for parameters description
 #I don't know how to make the bars filled with color and how to put p.value on the graph. If someone figures it out, please let me know
 
+
+
 my.plot <- ggbarplot(Cp.overview, x = "Site", y = "enrichment.over.IN", 
           add = c("mean_se", "jitter"),
-          color = "Sample", palette = "jco",
+          color = "Sample", palette = "jco", shape="Replicate",
+          legend= "right",
           position = position_dodge(0.8)) #+
     stat_compare_means(aes(group = Site),label = "p.signif", method = "t.test",
                      ref.group = "c_wt", hide.ns = FALSE) 
