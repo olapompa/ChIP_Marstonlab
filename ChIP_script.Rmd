@@ -68,9 +68,7 @@ write.csv(tbl.clean, "expn_ChIPdata_cleaned.csv")
 ```
 
 Here, we will exclude bad replicates and samples we are no longer interested in (can remove other things as well, please help yourself based on the syntax). Please write why you reject the replicate, etc:
-
-
-```{r}
+```{r eval = FALSE, echo = FALSE} 
 #examples
 tbl.clean <-  tbl.clean %>% 
   filter(!Strain %in% c("8067")) %>% 
@@ -79,7 +77,7 @@ tbl.clean <-  tbl.clean %>%
 tbl.clean
 ```
 
-Check if pipetting is good and calculate geometric mean of Cp. As the outcome of this chunk, you will get a table with conditions where the pipetting was off and the difference between the maximal and minimal Cp value are bigger than 1.If your pipetting is excellent, you will get an empty table.  
+Check if pipetting is good and calculate geometric mean of Cp. As the outcome of this chunk, you will get a table with conditions where the pipetting was off and the difference between the maximal and minimal Cp value are bigger than 1. If your pipetting is excellent, you will get an empty table.  
 ```{r}
 #R doesn't have a built-in function for calculating geometric mean, I found it in stack overflow
 gm_mean = function(x, na.rm=TRUE){
@@ -101,7 +99,7 @@ Cp.tbl %>%
 write.csv(Cp.tbl, "expn_ChIPdata_Cp_used.csv")
 ```
 
-If you need to remove a Cp value from further calculations you can do this here. The chunk is inactive if you make run all chunks but it still can be executed manually. After removing all inappropriate data, run again the chunk directly above once again.
+If you need to remove a Cp value from further calculations you can do this here. The chunk is inactive if you make run all chunks but it still can be executed manually. 
 ```{r eval = FALSE, echo = FALSE} 
 
 #we will execute it bit by bit. First, 
@@ -122,6 +120,26 @@ tbl.clean <-  tbl.clean %>%
 tbl.clean %>%  
   filter(Sample=="f_CDC5kt", Replicate=="F", Site=="ARM4_SK1", Type=="ChIP")
 ```
+
+After removing all inappropriate data points, run again the check
+```{r}
+Cp.tbl <- tbl.clean %>% 
+      group_by(Strain, Sample, Replicate, Site, Type) %>% 
+  summarise(
+      PCRs.per.sample =n(),
+      difference = max(Cp)-min(Cp),
+      Cp.geomean = gm_mean(Cp),
+      quality = if_else(difference <= 1, "good", "bad"),
+      .groups = "keep")
+
+#this should give an empty table
+Cp.tbl %>% 
+  filter(quality == "bad")
+
+#this overwrites the file created before removing the bad data points
+write.csv(Cp.tbl, "expn_ChIPdata_Cp_used.csv")
+```
+
 
 Now, finally calculating the enrichment in every sample.
 ```{r}
@@ -177,8 +195,7 @@ write.csv(ChIP.stat, "expn_ChIPdata_statistics.csv")
 And now the interesting bit, that is plotting. See [sthda](http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/) for package usage description. There are things that can be adjusted in R, like colors, title, axes etc. 
 ```{r}
 #use ?ggpar for parameters description
-#I don't know how to make the bars filled with color and how to put p.value on the graph. If someone figures it out, please let me know
-
+#I don't know how to make the bars filled with color and how to put p.value on the graph. If someone figures it out, please let me know. It should be easy to change this in illustrator or inkscape
 
 
 my.plot <- ggbarplot(Cp.overview, x = "Site", y = "enrichment.over.IN", 
@@ -191,12 +208,38 @@ my.plot <- ggbarplot(Cp.overview, x = "Site", y = "enrichment.over.IN",
 
 my.plot
 
-png("expn_ChIPplot.png")
+png("expn_ChIPplot_replicates.png")
 my.plot
 dev.off()
 
 #should be openable in illustrator
-svg("expn_ChIPplot.svg")
+pdf("expn_ChIPplot_replicates.pdf")
+my.plot
+dev.off()
+
+#if dev.off gives error, execute
+#while (!is.null(dev.list()))  dev.off()
+#and then try again
+```
+
+The same plot but without dots showing different replicates
+```{r}
+my.plot <- ggbarplot(Cp.overview, x = "Site", y = "enrichment.over.IN", 
+          add = c("mean_se"),
+          color = "Sample", palette = "jco", shape="Replicate",
+          legend= "right",
+          position = position_dodge(0.8)) #+
+    stat_compare_means(aes(group = Site),label = "p.signif", method = "t.test",
+                     ref.group = "c_wt", hide.ns = FALSE) 
+
+my.plot
+
+png("expn_ChIPplot_replicates.png")
+my.plot
+dev.off()
+
+#should be openable in illustrator
+pdf("expn_ChIPplot_replicates.pdf")
 my.plot
 dev.off()
 
